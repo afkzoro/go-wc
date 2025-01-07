@@ -23,7 +23,6 @@ func check(e error) {
 
 
 func main() {
-
 	showLines := flag.Bool("l", false, "print the newline counts")
     showBytes := flag.Bool("c", false, "print the byte counts")
     countWords := flag.Bool("w", false, "Count the number of words in the file")
@@ -47,7 +46,7 @@ func main() {
         var c Counter
         _, err = io.Copy(&c, file)
         check(err)
-        fmt.Printf("Bytes Count: %v\n", c)
+        fmt.Printf("Bytes Count: %v   %v\n", c, filename)
     }
 
 	if *showLines {
@@ -87,7 +86,7 @@ func main() {
             elapsedTime := time.Since(startTime).Milliseconds()
             println("Time elapsed in milliseconds: ", elapsedTime)
 
-            fmt.Printf("Word Count: %v\n", wordCount)
+            fmt.Printf("Word Count: %v  %v\n", wordCount, filename)
     }
 
     if *countCharacters {
@@ -102,7 +101,7 @@ func main() {
             charCount++
         }
 
-        fmt.Printf("Char Count: %v\n", charCount)
+        fmt.Printf("Char Count: %v  %v\n", charCount, filename)
 
     }
 }
