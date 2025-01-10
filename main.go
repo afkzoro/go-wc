@@ -1,79 +1,81 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"flag"
-	"fmt"
-	"io"
-	"os"
-	"unicode"
-
-	"time"
+    "bytes"
+    "flag"
+    "fmt"
+    "io"
+    "os"
+    "unicode"
 )
 
 type Counter int
 
-func check(e error) {
-    if e != nil {
-        panic(e)
-    }
-
-}
-
+// func check(e error) {
+//     if e != nil {
+//         panic(e)
+//     }
+// }
 
 func main() {
-	showLines := flag.Bool("l", false, "print the newline counts")
+    showLines := flag.Bool("l", false, "print the newline counts")
     showBytes := flag.Bool("c", false, "print the byte counts")
-    countWords := flag.Bool("w", false, "Count the number of words in the file")
-    countCharacters := flag.Bool("m", false, "Count the characters in the file")
+    countWords := flag.Bool("w", false, "print the number of words in the file")
+    countCharacters := flag.Bool("m", false, "print the characters in the file")
     flag.Parse()
 
+    var input io.Reader
+    filename := ""
+    args := flag.Args()
 
-	args := flag.Args()
-    if len(args) < 1 {
-        fmt.Println("Usage: program [-l|-c] filename")
+    if len(args) >= 1 {
+        file, err := os.Open(args[0])
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
+            os.Exit(1)
+        }
+        defer file.Close()
+        input = file
+        filename = args[0]
+    } else {
+        stat, _ := os.Stdin.Stat()
+        if (stat.Mode() & os.ModeCharDevice) == 0 {
+            input = os.Stdin
+        } else {
+            fmt.Println("No input provided")
+            os.Exit(1)
+        }
+    }
+
+    // Read all input into a buffer
+    buf, err := io.ReadAll(input)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
         os.Exit(1)
     }
-
-	filename := args[0]
-
-	if *showBytes {
-        file, err := os.Open(filename)
-        check(err)
-        defer file.Close()
-
-        var c Counter
-        _, err = io.Copy(&c, file)
-        check(err)
-        fmt.Printf("Bytes Count: %v   %v\n", c, filename)
-    }
-
-	if *showLines {
-        buf, err := os.ReadFile(filename)
-        check(err)
-
+    
+    noFlags := !*showLines && !*showBytes && !*countWords && !*countCharacters
+    
+    if noFlags {
+        // Get line count
         lineCount := bytes.Count(buf, []byte{'\n'})
         if len(buf) > 0 && !bytes.HasSuffix(buf, []byte{'\n'}) {
             lineCount++
         }
-        fmt.Printf("Line Count: %v\n", lineCount)
-    }
 
-    if *countWords {
-
-        startTime := time.Now()
-        file, err := os.Open(filename)
-        check(err)
-
-        reader := bufio.NewReaderSize(file, 16*1024)
+        // Get word count
         wordCount := int64(0)
         inWord := false
+        reader := bytes.NewReader(buf)
         
         for {
             r, _, err := reader.ReadRune()
             if err != nil {
-                break
+                if err == io.EOF {
+                    break
+                }
+                fmt.Fprintf(os.Stderr, "Error reading runes: %v\n", err)
+                os.Exit(1)
             }
             
             if unicode.IsSpace(r) {
@@ -83,35 +85,81 @@ func main() {
                 inWord = true
             }
         }
-            elapsedTime := time.Since(startTime).Milliseconds()
-            println("Time elapsed in milliseconds: ", elapsedTime)
 
-            fmt.Printf("Word Count: %v  %v\n", wordCount, filename)
+        // Get byte count
+        byteCount := len(buf)
+
+        // Print in the format: lines words bytes filename
+        if filename != "" {
+            fmt.Printf("%8d %8d %8d %s\n", lineCount, wordCount, byteCount, filename)
+        } else {
+            fmt.Printf("%8d %8d %8d\n", lineCount, wordCount, byteCount)
+        }
+        return
+    }
+
+    if *showLines {
+        lineCount := bytes.Count(buf, []byte{'\n'})
+        if len(buf) > 0 && !bytes.HasSuffix(buf, []byte{'\n'}) {
+            lineCount++
+        }
+        fmt.Printf("%8d\n", lineCount)
+    }
+
+    if *showBytes {
+        byteCount := len(buf)
+        fmt.Printf("%8d\n", byteCount)
+    }
+
+    if *countWords {
+        wordCount := int64(0)
+        inWord := false
+        reader := bytes.NewReader(buf)
+        
+        for {
+            r, _, err := reader.ReadRune()
+            if err != nil {
+                if err == io.EOF {
+                    break
+                }
+                fmt.Fprintf(os.Stderr, "Error reading runes: %v\n", err)
+                os.Exit(1)
+            }
+            
+            if unicode.IsSpace(r) {
+                inWord = false
+            } else if !inWord {
+                wordCount++
+                inWord = true
+            }
+        }
+        
+        fmt.Printf("%8d  %s\n", wordCount, filename)
     }
 
     if *countCharacters {
-        file, err := os.Open(filename)
-        check(err)
-
-        scanner := bufio.NewScanner(file)
-        scanner.Split(bufio.ScanRunes)
         charCount := 0
-
-        for scanner.Scan() {
+        reader := bytes.NewReader(buf)
+        
+        for {
+            _, _, err := reader.ReadRune()
+            if err != nil {
+                if err == io.EOF {
+                    break
+                }
+                fmt.Fprintf(os.Stderr, "Error reading runes: %v\n", err)
+                os.Exit(1)
+            }
             charCount++
         }
 
-        fmt.Printf("Char Count: %v  %v\n", charCount, filename)
-
+        fmt.Printf("%8d\n", charCount)
     }
 }
 
-// func isWordChar(b byte) bool {
-//     return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
-// }
-
-func (c *Counter) Write (p []byte) (n int, err error) {
-	l := len(p)
-	*c = Counter(int(*c) + l)
-	return l, nil
+func (c *Counter) Write(p []byte) (n int, err error) {
+    l := len(p)
+    *c = Counter(int(*c) + l)
+    return l, nil
 }
+
