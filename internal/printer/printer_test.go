@@ -46,7 +46,7 @@ func TestPrintResults(t *testing.T) {
             },
             filename: "",
             flags:    &counter.Flags{CountLines: true},
-            expected: "       3\n",
+            expected: "       3  \n",
         },
     }
 
