@@ -1,7 +1,7 @@
 .PHONY: build test clean
 
 build:
-	go build -o bin/wc cmd/wc/main.go
+	go build -o bin/go-wc cmd/wc/main.go
 
 test:
 	go test ./...
